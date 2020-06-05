@@ -102,42 +102,53 @@ namespace data_grid_view_virtual_mode
         protected override void OnNewRowNeeded(DataGridViewRowEventArgs e)
         {
             base.OnNewRowNeeded(e);
-            AllowUserToAddRows = false;
-            Refresh();
-            BeginInvoke((MethodInvoker) delegate { EnsureProvisionalEditTarget(); });
+            if(_dragCount == 0) // <== Disallow during Drag op.
+            {
+                AllowUserToAddRows = false;
+                Refresh();
+                BeginInvoke((MethodInvoker)delegate { EnsureProvisionalEditTarget(); });
+            }
         }
 
         #region C E L L S
         protected override void OnCellBeginEdit(DataGridViewCellCancelEventArgs e)
-        {            
-            if(IsCheckboxCell)
+        {
+            if (_dragCount == 0)
             {
-                if(e.RowIndex == Count)
+                if (IsCheckboxCell)
                 {
-                    _isRowDirty = true;
+                    if (e.RowIndex == Count)
+                    {
+                        _isRowDirty = true;
+                    }
+                    else
+                    {   /* G T K */
+                        // Leave _isRowDirty in its current state, true or false.
+                    }
                 }
                 else
-                {   /* G T K */
-                    // Leave _isRowDirty in its current state, true or false.
-                }
-            }
-            else
-            {
-                _isRowDirty = true;
-                Refresh();
-            }
-            if (e.RowIndex == Count) // New object required
-            {
-                // Create a 'provisional' object if we don't have one already
-                EnsureProvisionalEditTarget();
-
-                BeginInvoke((MethodInvoker)delegate 
                 {
+                    _isRowDirty = true;
+                    Refresh();
+                }
+                if (e.RowIndex == Count) // New object required
+                {
+                    // Create a 'provisional' object if we don't have one already
+                    EnsureProvisionalEditTarget();
+
+                    BeginInvoke((MethodInvoker)delegate
+                    {
                     // Force a draw the new item. For example, it
                     // already has a value for the ID field that 
                     // won't show up without a Refresh();
                     Refresh();
-                });
+                    });
+                }
+            }
+            else
+            {
+                // We're in a drag op. Disallow edit.
+                e.Cancel = true;
             }
             base.OnCellBeginEdit(e);
         }
@@ -414,8 +425,8 @@ namespace data_grid_view_virtual_mode
                     default:
                         throw new NotImplementedException();
                 }
-                RowCount = Count + 1;
                 AllowUserToAddRows = false;
+                RowCount = Count;
                 ClearSelection();
                 Capture = true;
                 DoDragDrop(_dragItems, DragDropEffects.Move);

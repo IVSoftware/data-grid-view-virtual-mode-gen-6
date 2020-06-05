@@ -16,6 +16,6 @@ namespace data_grid_view_virtual_mode
             .NewGuid()
             .ToString()
             .Trim(new char[] { '{', '}' });
-        public bool Reorder { get; set; }
+        public bool CheckMe { get; set; }
     }
 }
