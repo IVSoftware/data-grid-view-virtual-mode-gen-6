@@ -237,7 +237,6 @@ namespace data_grid_view_virtual_mode
             e.Response = _isRowDirty;
             base.OnRowDirtyStateNeeded(e);
         }
-
         protected override void OnRowValidated(DataGridViewCellEventArgs e)
         {
             base.OnRowValidated(e);
@@ -252,7 +251,6 @@ namespace data_grid_view_virtual_mode
             }
             Refresh();
         }
-
         protected override void OnCancelRowEdit(QuestionEventArgs e)
         {
             base.OnCancelRowEdit(e);
@@ -265,7 +263,6 @@ namespace data_grid_view_virtual_mode
             _isRowDirty = false;
             AllowUserToAddRows = true;
         }
-
         protected override void OnRowPostPaint(DataGridViewRowPostPaintEventArgs e)
         {
             base.OnRowPostPaint(e);
@@ -307,6 +304,12 @@ namespace data_grid_view_virtual_mode
             {
                 _timerMultiSelect.Start();
             }
+        }
+        protected override void OnUserDeletingRow(DataGridViewRowCancelEventArgs e)
+        {
+            base.OnUserDeletingRow(e);
+            MyClass delete = this[e.Row.Index];
+            Remove(delete);
         }
         readonly System.Windows.Forms.Timer _timerMultiSelect;
 
@@ -435,6 +438,7 @@ namespace data_grid_view_virtual_mode
                     Add(orig);
                 }
                 _revert.Clear();
+                RowCount = Count;   // <= Critical
             }
             for (int i = 0; i < Count; i++)
             {
@@ -449,8 +453,8 @@ namespace data_grid_view_virtual_mode
                 _timerMultiSelect.Start();
             }
             _dragItems.Clear();
-            AllowUserToAddRows = true;
-            RowCount = Count + 1;
+            AllowUserToAddRows = true;  
+            RowCount = Count + 1;  // <= Critical
             Refresh();
         }
 
