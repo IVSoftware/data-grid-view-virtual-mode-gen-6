@@ -111,6 +111,7 @@ namespace data_grid_view_virtual_mode
         }
 
         #region C E L L S
+        [Obsolete("This block has probably become unnecessary but requires testing before removal!")]
         protected override void OnCellBeginEdit(DataGridViewCellCancelEventArgs e)
         {
             if (_dragCount == 0)
@@ -380,7 +381,9 @@ namespace data_grid_view_virtual_mode
         {
             base.SetSelectedRowCore(
                 rowIndex, 
-                selected && (_mouseDeltaX >= 0) && (_dragCount == 0)
+                selected && 
+                (_mouseDeltaX >= 0) &&  // "Swipe to the right" is OK
+                (_dragCount == 0)       // Make sure this isn't a drag op.
             );
         }
         #endregion
