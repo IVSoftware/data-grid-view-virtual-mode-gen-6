@@ -61,13 +61,16 @@ namespace data_grid_view_virtual_mode
 
         private void Test_DragDrop_B4(object sender, EventArgs e)
         {
-            // For testing purposes:
-            gridview.AllowUserToAddRows = false;
-
-            // Added for test case "Remove Row[1] and drop it on Row[3]
-            // Case 1:3 WORKS
+            InitTest();  gridview.AllowUserToAddRows = false;
 
             TestExistingCode(3, 2);
+        }
+
+        private void InitTest()
+        {
+            gridview.AllowUserToAddRows = false;
+            SynchronizeCounts();
+            StressTest();
         }
 
         private void TestExistingCode(int dragRow, int row)
@@ -144,32 +147,10 @@ namespace data_grid_view_virtual_mode
             finally { gridview.ResumeLayout(true); }
         }
 
-        private void StressTest(bool @throw = true)
-        {
-            if (@throw) gridview.HandleError = false;
-            string threatLevel = "";
-            // Crash is likely if an update occurs while
-            // RowCount is higher than dataList.Count
-            switch (gridview.RowCount.CompareTo(dataList.Count))
-            {
-                case -1:
-                    threatLevel = " WARNING";
-                    break;
-                case 0:
-                    threatLevel = "";
-                    break;
-                case 1:
-                    threatLevel = " CRASH IMMINENT";
-                    break;
-            }
-            Debug.WriteLine("RowCount: " + gridview.RowCount + " " + "DataCount" + dataList.Count + threatLevel);
-
-            // Force an update
-            gridview.Refresh();
-        }
-
         private void Test_DragDrop_FTR(object sender, EventArgs e)
         {
+            InitTest(); gridview.AllowUserToAddRows = false;
+
             TestIVSCode(3, 2);
         }
         private void TestIVSCode(int dragRowIndex, int dropRowIndex)
@@ -187,7 +168,9 @@ namespace data_grid_view_virtual_mode
                 // binding between the two, You gave that up when you
                 // set VirtualMode = true;
 
+
                 StressTest(); 
+
                 dataList.RemoveAt(dragRowIndex); // Remove the dragged item(s)
                 SynchronizeCounts();
                 StressTest();
@@ -234,6 +217,30 @@ namespace data_grid_view_virtual_mode
             {
                 gridview.RowCount++;
             }
+        }
+
+        private void StressTest(bool @throw = true)
+        {
+            if (@throw) gridview.HandleError = false;
+            string threatLevel = "";
+            // Crash is likely if an update occurs while
+            // RowCount is higher than dataList.Count
+            switch (gridview.RowCount.CompareTo(dataList.Count))
+            {
+                case -1:
+                    threatLevel = " WARNING";
+                    break;
+                case 0:
+                    threatLevel = "";
+                    break;
+                case 1:
+                    threatLevel = " CRASH IMMINENT";
+                    break;
+            }
+            Debug.WriteLine("RowCount: " + gridview.RowCount + " " + "DataCount" + dataList.Count + threatLevel);
+
+            // Force an update
+            gridview.Refresh();
         }
     }
 }
