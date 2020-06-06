@@ -177,10 +177,12 @@ namespace data_grid_view_virtual_mode
                 if(HandleError)
                 {
                     Debug.WriteLine("Unexpected!");
+                    return;
                 }
                 else
                 {   /* G T K */
-                    throw new IndexOutOfRangeException("RowCount: " + RowCount + " " + "DataCount" + dataList.Count);
+                    // Make sure your C# Managed Exceptions are set to break when thrown.
+                    // See this answer: https://stackoverflow.com/a/62025885/5438626
                 }
             }
             DataValue editTarget = this[e.RowIndex];

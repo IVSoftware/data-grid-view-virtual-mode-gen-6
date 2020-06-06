@@ -72,7 +72,9 @@ namespace data_grid_view_virtual_mode
 
         private void TestExistingCode(int dragRow, int row)
         {
+            // IVS: Meaningless gesture in a VirtualMode DataGridView
             gridview.SuspendLayout();
+            // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             try
             {
                 StressTest();   // <= Added by IVS
@@ -130,6 +132,15 @@ namespace data_grid_view_virtual_mode
                 // move selection to moved row
                 gridview.CurrentCell = gridview[gridview.CurrentCell.ColumnIndex, row];
             }
+            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+            // Added by IVS
+            // Leaving out a 'catch' block often results in
+            // exceptions that get swallowed and are undetectable.
+            catch(Exception e)
+            {
+                throw e;
+            }
+            // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
             finally { gridview.ResumeLayout(true); }
         }
 
@@ -148,7 +159,7 @@ namespace data_grid_view_virtual_mode
                     threatLevel = "";
                     break;
                 case 1:
-                    threatLevel = " CRASH IMMINENT"; 
+                    threatLevel = " CRASH IMMINENT";
                     break;
             }
             Debug.WriteLine("RowCount: " + gridview.RowCount + " " + "DataCount" + dataList.Count + threatLevel);
@@ -159,7 +170,11 @@ namespace data_grid_view_virtual_mode
 
         private void Test_DragDrop_FTR(object sender, EventArgs e)
         {
-            throw new NotImplementedException();
+            TestIVSCode(3, 2);
+        }
+        private void TestIVSCode(int dragRow, int row)
+        {
+
         }
     }
 }
