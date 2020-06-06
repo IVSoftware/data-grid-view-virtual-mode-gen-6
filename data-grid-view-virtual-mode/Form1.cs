@@ -172,9 +172,68 @@ namespace data_grid_view_virtual_mode
         {
             TestIVSCode(3, 2);
         }
-        private void TestIVSCode(int dragRow, int row)
+        private void TestIVSCode(int dragRowIndex, int dropRowIndex)
         {
+            try
+            {
+                // We need to bank the actual objects here.
+                DataValue 
+                    draggedItem = dataList[dragRowIndex],
+                    dropTarget = dataList[dropRowIndex];
 
+                // From here on out, anything index-based is doomed to 
+                // spradically fail because we're changing the list by 
+                // removing one or more items from it. There is no
+                // binding between the two, You gave that up when you
+                // set VirtualMode = true;
+
+                StressTest(); 
+                dataList.RemoveAt(dragRowIndex); // Remove the dragged item(s)
+                SynchronizeCounts();
+                StressTest();
+                
+                // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+                // CRITICAL:
+                // So at what index is the drop target now?
+                int correctDropRowIndex = dataList.IndexOf(dropTarget);
+                // In many cases it's not the same as dropRowIndex!!
+                // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+                dataList.Insert(correctDropRowIndex, draggedItem);
+                SynchronizeCounts();
+                StressTest();
+
+                // move selection to moved row
+
+                int safeColumnIndex = gridview.CurrentCell == null ? 0 : gridview.CurrentCell.ColumnIndex;
+                int newIndexOfDroppedItem = dataList.IndexOf(draggedItem);
+
+                gridview.CurrentCell = 
+                    gridview
+                    [
+                        columnIndex: safeColumnIndex, 
+                        rowIndex: newIndexOfDroppedItem
+                    ];
+            }
+            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+            // Added by IVS
+            // Leaving out a 'catch' block often results in
+            // exceptions that get swallowed and are undetectable.
+            catch (Exception e)
+            {
+                throw e;
+            }
+            // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            finally { gridview.ResumeLayout(true); }
+        }
+
+        private void SynchronizeCounts()
+        {
+            gridview.RowCount = dataList.Count;
+            if (gridview.AllowUserToAddRows)
+            {
+                gridview.RowCount++;
+            }
         }
     }
 }
