@@ -2,10 +2,10 @@
 
 namespace data_grid_view_virtual_mode
 {
-    internal class MyClass
+    internal class DataValue
     {
-        public MyClass() { }
-        public MyClass(string description) 
+        public DataValue() { }
+        public DataValue(string description) 
         {
             Description = description;
         }

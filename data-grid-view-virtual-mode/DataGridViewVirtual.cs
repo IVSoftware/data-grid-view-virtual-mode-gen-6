@@ -33,9 +33,14 @@ namespace data_grid_view_virtual_mode
         Remove,
         Dim
     }
-    class DataGridViewVirtual : DataGridView, IList<MyClass>
+    class DataGridViewVirtual : DataGridView, IList<DataValue>
     {
-        List<MyClass> _data = new List<MyClass>();
+        public List<DataValue> _data = new List<DataValue>();
+
+        // This is STRICTLY so that test code matches
+        // the way the original post reads.
+        public List<DataValue> dataList => _data;
+
         public DataGridViewVirtual()
         {
             _timerMultiSelect = new System.Windows.Forms.Timer();
@@ -48,12 +53,12 @@ namespace data_grid_view_virtual_mode
             if(!DesignMode)
             {
                 // Test data
-                Add(new MyClass("A"));
-                Add(new MyClass("B"));
-                Add(new MyClass("C"));
-                Add(new MyClass("D"));
+                Add(new DataValue("A"));
+                Add(new DataValue("B"));
+                Add(new DataValue("C"));
+                Add(new DataValue("D"));
 
-                PropertyInfo[] properties = typeof(MyClass).GetProperties();
+                PropertyInfo[] properties = typeof(DataValue).GetProperties();
                 DataGridViewColumn c;
                 foreach (var property in properties)
                 {
@@ -82,12 +87,12 @@ namespace data_grid_view_virtual_mode
         }
 
         // 'Provisional' because adding the row could still be cancelled.
-        MyClass _provisional = null;
+        DataValue _provisional = null;
         private void EnsureProvisionalEditTarget()
         {
             if(_provisional == null)
             {
-                _provisional = new MyClass();
+                _provisional = new DataValue();
                 Add(_provisional);
                 RowCount = Count;
                 CurrentCell = Rows[Count - 1].Cells[0];
@@ -160,25 +165,32 @@ namespace data_grid_view_virtual_mode
             if (rowIndex >= Count) return false;
             return true;
         }
+
+        public bool HandleError { get; set; } = true;
         protected override void OnCellValueNeeded(DataGridViewCellValueEventArgs e)
         {
-            Debug.WriteLine("OnCellValueNeeded: " + e.RowIndex + ":" + e.ColumnIndex);
-            if (IsCellValid(columnIndex: e.ColumnIndex, rowIndex: e.RowIndex))
-            { 
-                MyClass editTarget = this[e.RowIndex];
-                PropertyInfo pi = typeof(MyClass).GetProperty(Columns[e.ColumnIndex].Name);
-                Debug.Assert(pi != null);
-                e.Value = pi.GetValue(editTarget);
-            }
-            else
-            {
-                Debug.WriteLine("Unexpected!");
-            }
             base.OnCellValueNeeded(e);
+
+            Debug.WriteLine("OnCellValueNeeded: " + e.RowIndex + ":" + e.ColumnIndex);
+            if (!IsCellValid(columnIndex: e.ColumnIndex, rowIndex: e.RowIndex))
+            {
+                if(HandleError)
+                {
+                    Debug.WriteLine("Unexpected!");
+                }
+                else
+                {   /* G T K */
+                    throw new IndexOutOfRangeException("RowCount: " + RowCount + " " + "DataCount" + dataList.Count);
+                }
+            }
+            DataValue editTarget = this[e.RowIndex];
+            PropertyInfo pi = typeof(DataValue).GetProperty(Columns[e.ColumnIndex].Name);
+            Debug.Assert(pi != null);
+            e.Value = pi.GetValue(editTarget);
         }
         protected override void OnCellValuePushed(DataGridViewCellValueEventArgs e)
         {
-            MyClass editTarget;
+            DataValue editTarget;
             if(e.RowIndex == Count) 
             {
                 // New object required
@@ -191,7 +203,7 @@ namespace data_grid_view_virtual_mode
                 editTarget = this[e.RowIndex];
             }
             Debug.Assert(editTarget != null);
-            PropertyInfo pi = typeof(MyClass).GetProperty(Columns[e.ColumnIndex].Name);
+            PropertyInfo pi = typeof(DataValue).GetProperty(Columns[e.ColumnIndex].Name);
             Debug.Assert(pi != null);
             pi.SetValue(editTarget, e.Value);
             base.OnCellValuePushed(e);
@@ -320,7 +332,7 @@ namespace data_grid_view_virtual_mode
         protected override void OnUserDeletingRow(DataGridViewRowCancelEventArgs e)
         {
             base.OnUserDeletingRow(e);
-            MyClass delete = this[e.Row.Index];
+            DataValue delete = this[e.Row.Index];
             Remove(delete);
         }
         readonly System.Windows.Forms.Timer _timerMultiSelect;
@@ -391,7 +403,7 @@ namespace data_grid_view_virtual_mode
         #region D R A G    D R O P
         public DragMode DragMode { get; set; }
         int _lastInsertIndex = -1;
-        List<MyClass> _dragItems { get; } = new List<MyClass>();
+        List<DataValue> _dragItems { get; } = new List<DataValue>();
 
         // Idles at 0...
         int _dragCount = 0;
@@ -487,7 +499,7 @@ namespace data_grid_view_virtual_mode
         protected override void OnDragDrop(DragEventArgs e)
         {
             ExecHitTest(new Point(e.X, e.Y), out bool above, out int insertIndex);
-            List<MyClass> dragItems = (List<MyClass>)e.Data.GetData(typeof(List<MyClass>));
+            List<DataValue> dragItems = (List<DataValue>)e.Data.GetData(typeof(List<DataValue>));
             switch (DragMode)
             {
                 case DragMode.Remove:
@@ -508,7 +520,7 @@ namespace data_grid_view_virtual_mode
                     }
                     else
                     {
-                        MyClass insertItem = this[insertIndex];
+                        DataValue insertItem = this[insertIndex];
                         foreach (var dragItem in dragItems)
                         {
                             Remove(dragItem);
@@ -549,70 +561,71 @@ namespace data_grid_view_virtual_mode
             return hitTest;
         }
 
-        List<MyClass> _revert { get; } = new List<MyClass>();
+        List<DataValue> _revert { get; } = new List<DataValue>();
         #endregion
 
         #region I L I S T
 
-        public MyClass this[int index] 
+        public DataValue this[int index] 
         { 
-            get => ((IList<MyClass>)_data)[index]; 
-            set => ((IList<MyClass>)_data)[index] = value;
+            get => ((IList<DataValue>)_data)[index]; 
+            set => ((IList<DataValue>)_data)[index] = value;
         }
 
-        public int Count => ((IList<MyClass>)_data).Count;
+        public int Count => ((IList<DataValue>)_data).Count;
 
-        public bool IsReadOnly => ((IList<MyClass>)_data).IsReadOnly;
+        public bool IsReadOnly => ((IList<DataValue>)_data).IsReadOnly;
 
-        public void Add(MyClass item)
+        public void Add(DataValue item)
         {
-            ((IList<MyClass>)_data).Add(item);
+            ((IList<DataValue>)_data).Add(item);
         }
 
         public void Clear()
         {
-            ((IList<MyClass>)_data).Clear();
+            ((IList<DataValue>)_data).Clear();
         }
 
-        public bool Contains(MyClass item)
+        public bool Contains(DataValue item)
         {
-            return ((IList<MyClass>)_data).Contains(item);
+            return ((IList<DataValue>)_data).Contains(item);
         }
 
-        public void CopyTo(MyClass[] array, int arrayIndex)
+        public void CopyTo(DataValue[] array, int arrayIndex)
         {
-            ((IList<MyClass>)_data).CopyTo(array, arrayIndex);
+            ((IList<DataValue>)_data).CopyTo(array, arrayIndex);
         }
 
-        public IEnumerator<MyClass> GetEnumerator()
+        public IEnumerator<DataValue> GetEnumerator()
         {
-            return ((IList<MyClass>)_data).GetEnumerator();
+            return ((IList<DataValue>)_data).GetEnumerator();
         }
 
-        public int IndexOf(MyClass item)
+        public int IndexOf(DataValue item)
         {
-            return ((IList<MyClass>)_data).IndexOf(item);
+            return ((IList<DataValue>)_data).IndexOf(item);
         }
 
-        public void Insert(int index, MyClass item)
+        public void Insert(int index, DataValue item)
         {
-            ((IList<MyClass>)_data).Insert(index, item);
+            ((IList<DataValue>)_data).Insert(index, item);
         }
 
-        public bool Remove(MyClass item)
+        public bool Remove(DataValue item)
         {
-            return ((IList<MyClass>)_data).Remove(item);
+            return ((IList<DataValue>)_data).Remove(item);
         }
 
         public void RemoveAt(int index)
         {
-            ((IList<MyClass>)_data).RemoveAt(index);
+            ((IList<DataValue>)_data).RemoveAt(index);
         }
 
         IEnumerator IEnumerable.GetEnumerator()
         {
-            return ((IList<MyClass>)_data).GetEnumerator();
+            return ((IList<DataValue>)_data).GetEnumerator();
         }
         #endregion
+
     }
 }
