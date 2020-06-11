@@ -43,10 +43,7 @@ namespace data_grid_view_virtual_mode
         public List<DataValue> dataList => _data;
 
         public DataGridViewVirtual()
-        {
-            _timerMultiSelect = new System.Windows.Forms.Timer();
-            _timerMultiSelect.Interval = 2000;
-            _timerMultiSelect.Tick += _timerMultiSelect_Tick;            
+        { 
         }
         protected override void OnHandleCreated(EventArgs e)
         {
@@ -365,14 +362,28 @@ namespace data_grid_view_virtual_mode
             }
             else
             {
-                int
-                    colB4 = CurrentCell.ColumnIndex,
-                    rowB4 = CurrentCell.RowIndex;
-                CurrentCell = null;
-                CurrentCell = this[columnIndex: colB4, rowIndex: rowB4];
+                CycleCurrentCell();
             }
             AllowUserToAddRows = true;
         }
+
+        private void CycleCurrentCell(int ensureRowIndex = -1)
+        {
+            int 
+                colB4 = CurrentCell.ColumnIndex,
+                rowB4;
+            if (ensureRowIndex == -1)
+            {
+                rowB4 = CurrentCell.RowIndex;
+            }
+            else
+            {
+                rowB4 = ensureRowIndex;
+            }
+            CurrentCell = null;
+            CurrentCell = this[columnIndex: colB4, rowIndex: rowB4];
+        }
+
         protected override void OnRowPostPaint(DataGridViewRowPostPaintEventArgs e)
         {
             base.OnRowPostPaint(e);
@@ -409,11 +420,6 @@ namespace data_grid_view_virtual_mode
         protected override void OnSelectionChanged(EventArgs e)
         {
             base.OnSelectionChanged(e);
-            _timerMultiSelect.Stop();
-            if(SelectedRows.Count > 1)
-            {
-                _timerMultiSelect.Start();
-            }
         }
         protected override void OnUserDeletingRow(DataGridViewRowCancelEventArgs e)
         {
@@ -421,18 +427,13 @@ namespace data_grid_view_virtual_mode
             DataValue delete = this[e.Row.Index];
             Remove(delete);
         }
-        #endregion
-        readonly System.Windows.Forms.Timer _timerMultiSelect;
-        private void _timerMultiSelect_Tick(object sender, EventArgs e)
-        {
-            _timerMultiSelect.Stop();
-        }
 
         protected override void OnRowDirtyStateNeeded(QuestionEventArgs e)
         {
             e.Response = IsCurrentCellDirty;
             base.OnRowDirtyStateNeeded(e);
         }
+        #endregion
         bool IsCheckboxCell
         {
             get =>
@@ -444,12 +445,18 @@ namespace data_grid_view_virtual_mode
         #region M O U S E
         int _mouseDownX;
         int _mouseDeltaX = 0;
+        int[] _mouseDownSel;
         protected override void OnMouseDown(MouseEventArgs e)
         {
-            // You have a short period to drag a multiselect.
-            // After timer expires, a click selects a single item.
-            if(!_timerMultiSelect.Enabled)
+            _mouseDownSel =
+                SelectedRows
+                .Cast<DataGridViewRow>()
+                .OrderBy(row => row.Index)
+                .Select(row => row.Index)
+                .ToArray();
+            if (_mouseDownSel.Length < 2)
             {
+                // Suppress selection when multiselect
                 base.OnMouseDown(e);
             }
             _mouseDownX = e.X;            
@@ -474,6 +481,27 @@ namespace data_grid_view_virtual_mode
             if (_dragCount != 0)
             {
                 FinalizeDrag();
+            }
+            else
+            {
+                // Check how many rows are selected after mouse action.
+                int[] selNow =
+                    SelectedRows
+                    .Cast<DataGridViewRow>()
+                    .OrderBy(row => row.Index)
+                    .Select(row => row.Index)
+                    .ToArray();
+                // If the number is unchanged...
+                if (selNow.Length == _mouseDownSel.Length)
+                {
+                    // ... then clear all rows except the mouse up row.
+                    HitTestInfo hti = HitTest(e.X, e.Y);
+                    if (hti.RowIndex != -1)
+                    {
+                        ClearSelection();
+                        CycleCurrentCell(hti.RowIndex);
+                    }
+                }
             }
             base.OnMouseUp(e);
         }
@@ -577,11 +605,6 @@ namespace data_grid_view_virtual_mode
                 {
                     Rows[i].Selected = true;
                 }
-            }
-            if(_dragItems.Count > 1)
-            {
-                _timerMultiSelect.Stop();
-                _timerMultiSelect.Start();
             }
             _dragItems.Clear();
             AllowUserToAddRows = true;  
