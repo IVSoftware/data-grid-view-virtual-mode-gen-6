@@ -71,7 +71,9 @@ namespace data_grid_view_virtual_mode
 
         private void Test_DragDrop_B4(object sender, EventArgs e)
         {
-            InitTest();  gridview.AllowUserToAddRows = false;
+            InitTest();  
+            
+            gridview.AllowUserToAddRows = false;
 
             IdentifyCallsToCellValueNeeded(2, 3);
             TestExistingCode(3, 2);

@@ -17,6 +17,7 @@ limitations under the License.
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
@@ -45,7 +46,7 @@ namespace data_grid_view_virtual_mode
         {
             _timerMultiSelect = new System.Windows.Forms.Timer();
             _timerMultiSelect.Interval = 2000;
-            _timerMultiSelect.Tick += _timerMultiSelect_Tick;
+            _timerMultiSelect.Tick += _timerMultiSelect_Tick;            
         }
         protected override void OnHandleCreated(EventArgs e)
         {
@@ -111,6 +112,51 @@ namespace data_grid_view_virtual_mode
             }
         }
 
+        #region E D I T I N G    C O N T R O L
+
+        protected override void OnEditingControlShowing(DataGridViewEditingControlShowingEventArgs e)
+        {
+            base.OnEditingControlShowing(e);
+            e.Control.PreviewKeyDown += Control_PreviewKeyDown;
+            e.Control.KeyPress += Control_KeyPress;
+            e.Control.VisibleChanged += Control_VisibleChanged;
+        }
+
+        private void Control_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            switch ((Keys)e.KeyChar)
+            {
+                case Keys.Escape:
+                    e.Handled = true;
+                    break;
+            }
+        }
+
+        private void Control_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
+        {
+            switch (e.KeyData)
+            {
+                case Keys.Enter:
+                    KeepCurrentRow = CurrentCell.RowIndex;
+                    break;
+            }
+        }
+
+        private void Control_VisibleChanged(object sender, EventArgs e)
+        {
+            if (!Visible)
+            {
+                KeepCurrentRow = -1;
+            }
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+
+        #endregion
+
         #region C E L L S
 
         // Opportunity to cancel
@@ -118,6 +164,7 @@ namespace data_grid_view_virtual_mode
         {
             if (_dragCount == 0)
             {
+                AllowUserToAddRows = false;
                 Debug.WriteLine("CellBeginEdit-ENTER: EditMode=" + IsCurrentCellInEditMode + " Dirty=" + IsCurrentCellDirty);
                 if (e.RowIndex == Count) // New object required
                 {
@@ -144,8 +191,11 @@ namespace data_grid_view_virtual_mode
         }
         protected override void OnCellEndEdit(DataGridViewCellEventArgs e)
         {
+            CancelEdit();
+            return;
             Debug.WriteLine("CellEndEdit: EditMode=" + IsCurrentCellInEditMode + " Dirty=" + IsCurrentCellDirty);
             base.OnCellEndEdit(e);
+            BeginInvoke((MethodInvoker)delegate { AllowUserToAddRows = true; });
         }
         private bool IsCellValid(int columnIndex, int rowIndex)
         {
@@ -179,32 +229,6 @@ namespace data_grid_view_virtual_mode
             Debug.Assert(pi != null);
             e.Value = pi.GetValue(editTarget);
         }
-
-        protected override void OnEditingControlShowing(DataGridViewEditingControlShowingEventArgs e)
-        {
-            base.OnEditingControlShowing(e);
-            e.Control.PreviewKeyDown += _editingControl_PreviewKeyDown;
-            e.Control.VisibleChanged += Control_VisibleChanged;
-        }
-
-        private void _editingControl_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
-        {
-            switch(e.KeyData)
-            {
-                case Keys.Enter:
-                    KeepCurrentRow = CurrentCell.RowIndex;
-                    break;
-            }
-        }
-
-        private void Control_VisibleChanged(object sender, EventArgs e)
-        {
-            if(!Visible)
-            {
-                KeepCurrentRow = -1;
-            }
-        }
-
 
         // Called as a result of CommitEdit() or EndEdit().
         // This will leave DirtyState = false;
@@ -240,18 +264,14 @@ namespace data_grid_view_virtual_mode
             {
                 if (IsCheckboxCell)
                 {
-                    if (IsCurrentCellInEditMode)
-                    {
-                        BeginInvoke((MethodInvoker) delegate
-                        {
-                            Debug.WriteLine("Invoked: EndEdit");
-                            EndEdit();
-                        });
-                    }
+                    BeginInvoke((MethodInvoker)delegate
+                   {
+                       Debug.WriteLine("Invoked: EndEdit");
+                       EndEdit();
+                   });
                 }
                 else
                 {
-                    _isRowDirty = true;
                     Refresh();
                 }
             }
@@ -289,22 +309,6 @@ namespace data_grid_view_virtual_mode
             }
             base.OnCellPainting(e);
         }
-        protected override void OnCellContentClick(DataGridViewCellEventArgs e)
-        {
-            base.OnCellContentClick(e);
-            try
-            {
-                //if (typeof(DataGridViewCheckBoxCell).IsAssignableFrom(CurrentCell.GetType()))
-                //{
-                //    CommitEdit(DataGridViewDataErrorContexts.Commit);
-                //}
-            }
-            catch (Exception ex)
-            {
-                Debug.Assert(false, ex.Message);
-            }
-        }
-
         protected override bool SetCurrentCellAddressCore(int columnIndex, int rowIndex, bool setAnchorCellAddress, bool validateCurrentCell, bool throughMouseClick)
         {
             if  (
@@ -337,25 +341,10 @@ namespace data_grid_view_virtual_mode
         #endregion
 
         #region R O W S
-        bool _isRowDirty = false;
-        protected override void OnRowDirtyStateNeeded(QuestionEventArgs e)
-        {
-            e.Response = _isRowDirty;
-            base.OnRowDirtyStateNeeded(e);
-        }
         protected override void OnRowValidated(DataGridViewCellEventArgs e)
         {
             base.OnRowValidated(e);
-            if (_isRowDirty)
-            {
-                _isRowDirty = false;
-                AllowUserToAddRows = true;
-                if(_provisional != null)
-                {
-                    _provisional = null;
-                }
-            }
-            Refresh();
+            AllowUserToAddRows = true;
         }
         protected override void OnCancelRowEdit(QuestionEventArgs e)
         {
@@ -366,7 +355,6 @@ namespace data_grid_view_virtual_mode
                 RowCount = Count;
             }
             _provisional = null;
-            _isRowDirty = false;
             AllowUserToAddRows = true;
         }
         protected override void OnRowPostPaint(DataGridViewRowPostPaintEventArgs e)
