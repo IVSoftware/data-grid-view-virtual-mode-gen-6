@@ -305,6 +305,23 @@ namespace data_grid_view_virtual_mode
                 Debug.Assert(false, ex.Message);
             }
         }
+
+        protected override bool SetCurrentCellAddressCore(int columnIndex, int rowIndex, bool setAnchorCellAddress, bool validateCurrentCell, bool throughMouseClick)
+        {
+            if (!AllowSelect)
+            {   /* G T K */
+            }
+            return base.SetCurrentCellAddressCore(
+                columnIndex, 
+                rowIndex, 
+                setAnchorCellAddress, 
+                validateCurrentCell, 
+                throughMouseClick);
+        }
+        protected override void OnCurrentCellChanged(EventArgs e)
+        {
+            base.OnCurrentCellChanged(e);
+        }
         #endregion
 
         #region R O W S
@@ -451,7 +468,7 @@ namespace data_grid_view_virtual_mode
                 AllowSelect
             );
         }
-        bool AllowSelect { get; set; }
+        bool AllowSelect { get; set; } = true;
         #endregion
 
         #region D R A G    D R O P
