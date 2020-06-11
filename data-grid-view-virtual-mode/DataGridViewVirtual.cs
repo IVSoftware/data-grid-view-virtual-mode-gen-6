@@ -341,6 +341,24 @@ namespace data_grid_view_virtual_mode
         {
             base.OnCurrentCellChanged(e);
         }
+
+        private void CycleCurrentCell(int ensureRowIndex = -1)
+        {
+            Debug.WriteLine("CycleCurrentCell");
+            int
+                colB4 = CurrentCell.ColumnIndex,
+                rowB4;
+            if (ensureRowIndex == -1)
+            {
+                rowB4 = CurrentCell.RowIndex;
+            }
+            else
+            {
+                rowB4 = ensureRowIndex;
+            }
+            CurrentCell = null;
+            CurrentCell = this[columnIndex: colB4, rowIndex: rowB4];
+        }
         #endregion
 
         #region R O W S
@@ -365,23 +383,6 @@ namespace data_grid_view_virtual_mode
                 CycleCurrentCell();
             }
             AllowUserToAddRows = true;
-        }
-
-        private void CycleCurrentCell(int ensureRowIndex = -1)
-        {
-            int 
-                colB4 = CurrentCell.ColumnIndex,
-                rowB4;
-            if (ensureRowIndex == -1)
-            {
-                rowB4 = CurrentCell.RowIndex;
-            }
-            else
-            {
-                rowB4 = ensureRowIndex;
-            }
-            CurrentCell = null;
-            CurrentCell = this[columnIndex: colB4, rowIndex: rowB4];
         }
 
         protected override void OnRowPostPaint(DataGridViewRowPostPaintEventArgs e)
@@ -491,8 +492,11 @@ namespace data_grid_view_virtual_mode
                     .OrderBy(row => row.Index)
                     .Select(row => row.Index)
                     .ToArray();
-                // If the number is unchanged...
-                if (selNow.Length == _mouseDownSel.Length)
+                
+                if (
+                        (selNow.Length > 1) &&                      // is multiselection +
+                        (selNow.Length == _mouseDownSel.Length)     // multiselection is unchanged
+                   )
                 {
                     // ... then clear all rows except the mouse up row.
                     HitTestInfo hti = HitTest(e.X, e.Y);
