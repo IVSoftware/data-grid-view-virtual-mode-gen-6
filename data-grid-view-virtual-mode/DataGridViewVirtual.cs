@@ -118,7 +118,7 @@ namespace data_grid_view_virtual_mode
         {
             base.OnEditingControlShowing(e);
             e.Control.PreviewKeyDown += Control_PreviewKeyDown;
-            e.Control.KeyPress += Control_KeyPress;
+            //e.Control.KeyPress += Control_KeyPress;
             e.Control.VisibleChanged += Control_VisibleChanged;
         }
 
@@ -137,6 +137,7 @@ namespace data_grid_view_virtual_mode
             switch (e.KeyData)
             {
                 case Keys.Enter:
+                    // WORKS SAVE.
                     KeepCurrentRow = CurrentCell.RowIndex;
                     break;
             }
@@ -152,8 +153,15 @@ namespace data_grid_view_virtual_mode
 
         protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
         {
+            switch (keyData)
+            {
+                case Keys.Escape:
+                    OnCancelRowEdit(new QuestionEventArgs());
+                    return true;
+            }
             return base.ProcessCmdKey(ref msg, keyData);
         }
+        bool _cancelled = false;
 
         #endregion
 
@@ -191,8 +199,6 @@ namespace data_grid_view_virtual_mode
         }
         protected override void OnCellEndEdit(DataGridViewCellEventArgs e)
         {
-            CancelEdit();
-            return;
             Debug.WriteLine("CellEndEdit: EditMode=" + IsCurrentCellInEditMode + " Dirty=" + IsCurrentCellDirty);
             base.OnCellEndEdit(e);
             BeginInvoke((MethodInvoker)delegate { AllowUserToAddRows = true; });
@@ -346,6 +352,8 @@ namespace data_grid_view_virtual_mode
             base.OnRowValidated(e);
             AllowUserToAddRows = true;
         }
+
+        // We're firing this ourselves in the ProcessCmdKey method for Escape key
         protected override void OnCancelRowEdit(QuestionEventArgs e)
         {
             base.OnCancelRowEdit(e);
@@ -353,8 +361,16 @@ namespace data_grid_view_virtual_mode
             {
                 Remove(_provisional);
                 RowCount = Count;
+                _provisional = null;
             }
-            _provisional = null;
+            else
+            {
+                int
+                    colB4 = CurrentCell.ColumnIndex,
+                    rowB4 = CurrentCell.RowIndex;
+                CurrentCell = null;
+                CurrentCell = this[columnIndex: colB4, rowIndex: rowB4];
+            }
             AllowUserToAddRows = true;
         }
         protected override void OnRowPostPaint(DataGridViewRowPostPaintEventArgs e)
@@ -412,7 +428,11 @@ namespace data_grid_view_virtual_mode
             _timerMultiSelect.Stop();
         }
 
-        int _dbcount = 0;
+        protected override void OnRowDirtyStateNeeded(QuestionEventArgs e)
+        {
+            e.Response = IsCurrentCellDirty;
+            base.OnRowDirtyStateNeeded(e);
+        }
         bool IsCheckboxCell
         {
             get =>
