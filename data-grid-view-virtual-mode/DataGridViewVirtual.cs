@@ -187,22 +187,21 @@ namespace data_grid_view_virtual_mode
             e.Control.VisibleChanged += Control_VisibleChanged;
         }
 
-        private void Control_VisibleChanged(object sender, EventArgs e)
-        {
-            if(!Visible)
-            {
-                AllowSelect = true;
-            }
-        }
-
         private void _editingControl_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
         {
             switch(e.KeyData)
             {
                 case Keys.Enter:
-                    // DFW for this: e.IsInputKey = false;
-                    AllowSelect = false;
+                    KeepCurrentRow = CurrentCell.RowIndex;
                     break;
+            }
+        }
+
+        private void Control_VisibleChanged(object sender, EventArgs e)
+        {
+            if(!Visible)
+            {
+                KeepCurrentRow = -1;
             }
         }
 
@@ -308,15 +307,28 @@ namespace data_grid_view_virtual_mode
 
         protected override bool SetCurrentCellAddressCore(int columnIndex, int rowIndex, bool setAnchorCellAddress, bool validateCurrentCell, bool throughMouseClick)
         {
-            if (!AllowSelect)
-            {   /* G T K */
+            if  (
+                    (columnIndex == -1) ||
+                    (KeepCurrentRow == -1)
+                )
+            {
+                // Normal
+                return base.SetCurrentCellAddressCore(
+                    columnIndex,
+                    rowIndex,
+                    setAnchorCellAddress,
+                    validateCurrentCell,
+                    throughMouseClick);
             }
-            return base.SetCurrentCellAddressCore(
-                columnIndex, 
-                rowIndex, 
-                setAnchorCellAddress, 
-                validateCurrentCell, 
-                throughMouseClick);
+            else
+            {
+                return base.SetCurrentCellAddressCore(
+                    columnIndex,
+                    KeepCurrentRow,
+                    setAnchorCellAddress,
+                    validateCurrentCell,
+                    throughMouseClick);
+            }
         }
         protected override void OnCurrentCellChanged(EventArgs e)
         {
@@ -460,15 +472,29 @@ namespace data_grid_view_virtual_mode
 
         protected override void SetSelectedRowCore(int rowIndex, bool selected)
         {
-            base.SetSelectedRowCore(
-                rowIndex, 
-                selected && 
-                (_mouseDeltaX >= 0) &&  // "Swipe to the right" is OK
-                (_dragCount == 0)   &&  // Make sure this isn't a drag op.
-                AllowSelect
-            );
+            if(KeepCurrentRow == -1)
+            {
+                base.SetSelectedRowCore(
+                    rowIndex,
+                    selected &&
+                    (_mouseDeltaX >= 0) &&  // "Swipe to the right" is OK
+                    (_dragCount == 0) &&  // Make sure this isn't a drag op.
+                    AllowSelect
+                );
+            }
+            else
+            {
+                base.SetSelectedRowCore(
+                    KeepCurrentRow,
+                    selected &&
+                    (_mouseDeltaX >= 0) &&  // "Swipe to the right" is OK
+                    (_dragCount == 0) &&  // Make sure this isn't a drag op.
+                    AllowSelect
+                );
+            }
         }
         bool AllowSelect { get; set; } = true;
+        int KeepCurrentRow { get; set; } = -1;
         #endregion
 
         #region D R A G    D R O P
