@@ -432,13 +432,31 @@ namespace data_grid_view_virtual_mode
         int[] _mouseDownSel;
         protected override void OnMouseDown(MouseEventArgs e)
         {
-            if (SelectedRows.Count < 2)
+            HitTestInfo hti = HitTest(e.X, e.Y);
+            // If user comes down on the row header, select the row.
+            if (hti.Type == DataGridViewHitTestType.RowHeader)
             {
-                // Allow selection when NOT multiselected
-                base.OnMouseDown(e);
-                // So, if the count is 2 or more we do NOT
-                // call base.OnMouseDown because we will 
-                // lose our multiselection if we do that.
+                BeginInvoke((MethodInvoker)delegate
+                {
+                    CurrentCell = null;
+                    if (hti.RowIndex != -1)
+                        CurrentCell = this[
+                            columnIndex: Columns["Description"].Index,
+                            rowIndex: hti.RowIndex];
+                });
+                return;
+            }
+            else
+            {
+                // Otherwise, detect multiselection:
+                if (SelectedRows.Count < 2)
+                {
+                    // Allow selection when NOT multiselected
+                    base.OnMouseDown(e);
+                    // So, if the count is 2 or more we do NOT
+                    // call base.OnMouseDown because we will 
+                    // lose our multiselection if we do that.
+                }
             }
 
             if (SelectedRows.Count > 0)
@@ -452,7 +470,6 @@ namespace data_grid_view_virtual_mode
                 // However, the mouse has to come down
                 // on one of the selected rows! Otherwise
                 // cancel the selection.
-                HitTestInfo hti = HitTest(e.X, e.Y);
                 if (
                         (hti.Type != DataGridViewHitTestType.Cell) ||
                         (!_mouseDownSel.Contains(hti.RowIndex))
