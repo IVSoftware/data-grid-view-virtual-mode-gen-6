@@ -98,10 +98,6 @@ namespace data_grid_view_virtual_mode
                 CurrentCell = Rows[Count - 1].Cells[0];
                 BeginEdit(true);
                 Refresh();
-                //if(CurrentCell != null)
-                //{
-                //    NotifyCurrentCellDirty(true);
-                //}
             }
         }
         protected override void OnNewRowNeeded(DataGridViewRowEventArgs e)
@@ -116,27 +112,13 @@ namespace data_grid_view_virtual_mode
         }
 
         #region C E L L S
-        [Obsolete("This block has probably become unnecessary but requires testing before removal!")]
+
+        // Opportunity to cancel
         protected override void OnCellBeginEdit(DataGridViewCellCancelEventArgs e)
         {
             if (_dragCount == 0)
             {
-                if (IsCheckboxCell)
-                {
-                    if (e.RowIndex == Count)
-                    {
-                        _isRowDirty = true;
-                    }
-                    else
-                    {   /* G T K */
-                        // Leave _isRowDirty in its current state, true or false.
-                    }
-                }
-                else
-                {
-                    _isRowDirty = true;
-                    Refresh();
-                }
+                Debug.WriteLine("CellBeginEdit-ENTER: EditMode=" + IsCurrentCellInEditMode + " Dirty=" + IsCurrentCellDirty);
                 if (e.RowIndex == Count) // New object required
                 {
                     // Create a 'provisional' object if we don't have one already
@@ -144,10 +126,10 @@ namespace data_grid_view_virtual_mode
 
                     BeginInvoke((MethodInvoker)delegate
                     {
-                    // Force a draw the new item. For example, it
-                    // already has a value for the ID field that 
-                    // won't show up without a Refresh();
-                    Refresh();
+                        // Force a draw the new item. For example, it
+                        // already has a value for the ID field that 
+                        // won't show up without a Refresh();
+                        Refresh();
                     });
                 }
             }
@@ -157,6 +139,13 @@ namespace data_grid_view_virtual_mode
                 e.Cancel = true;
             }
             base.OnCellBeginEdit(e);
+
+            // If not cancelled, both EditMode and Dirty 'will be' true after this call.
+        }
+        protected override void OnCellEndEdit(DataGridViewCellEventArgs e)
+        {
+            Debug.WriteLine("CellEndEdit: EditMode=" + IsCurrentCellInEditMode + " Dirty=" + IsCurrentCellDirty);
+            base.OnCellEndEdit(e);
         }
         private bool IsCellValid(int columnIndex, int rowIndex)
         {
@@ -171,7 +160,7 @@ namespace data_grid_view_virtual_mode
         {
             base.OnCellValueNeeded(e);
 
-            Debug.WriteLine("OnCellValueNeeded: " + e.RowIndex + ":" + e.ColumnIndex);
+            // Debug.WriteLine("OnCellValueNeeded: " + e.RowIndex + ":" + e.ColumnIndex);
             if (!IsCellValid(columnIndex: e.ColumnIndex, rowIndex: e.RowIndex))
             {
                 if(HandleError)
@@ -190,8 +179,39 @@ namespace data_grid_view_virtual_mode
             Debug.Assert(pi != null);
             e.Value = pi.GetValue(editTarget);
         }
+
+        protected override void OnEditingControlShowing(DataGridViewEditingControlShowingEventArgs e)
+        {
+            base.OnEditingControlShowing(e);
+            e.Control.PreviewKeyDown += _editingControl_PreviewKeyDown;
+            e.Control.VisibleChanged += Control_VisibleChanged;
+        }
+
+        private void Control_VisibleChanged(object sender, EventArgs e)
+        {
+            if(!Visible)
+            {
+                AllowSelect = true;
+            }
+        }
+
+        private void _editingControl_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
+        {
+            switch(e.KeyData)
+            {
+                case Keys.Enter:
+                    // DFW for this: e.IsInputKey = false;
+                    AllowSelect = false;
+                    break;
+            }
+        }
+
+
+        // Called as a result of CommitEdit() or EndEdit().
+        // This will leave DirtyState = false;
         protected override void OnCellValuePushed(DataGridViewCellValueEventArgs e)
         {
+            Debug.WriteLine("OnCellValuePushed-Begin: EditMode=" + IsCurrentCellInEditMode + " Dirty=" + IsCurrentCellDirty);
             DataValue editTarget;
             if(e.RowIndex == Count) 
             {
@@ -208,7 +228,39 @@ namespace data_grid_view_virtual_mode
             PropertyInfo pi = typeof(DataValue).GetProperty(Columns[e.ColumnIndex].Name);
             Debug.Assert(pi != null);
             pi.SetValue(editTarget, e.Value);
+
+            // This apparently enqueues the DirtyState = false
             base.OnCellValuePushed(e);
+            // But it is still DIRTY here.
+        }
+        protected override void OnCurrentCellDirtyStateChanged(EventArgs e)
+        {
+            Debug.WriteLine("OnCurrentCellDirtyStateChanged-Begin: EditMode=" + IsCurrentCellInEditMode + " Dirty=" + IsCurrentCellDirty);
+            base.OnCurrentCellDirtyStateChanged(e);
+            if (IsCurrentCellDirty) 
+            {
+                if (IsCheckboxCell)
+                {
+                    if (IsCurrentCellInEditMode)
+                    {
+                        BeginInvoke((MethodInvoker) delegate
+                        {
+                            Debug.WriteLine("Invoked: EndEdit");
+                            EndEdit();
+                        });
+                    }
+                }
+                else
+                {
+                    _isRowDirty = true;
+                    Refresh();
+                }
+            }
+            else
+            {   /* G T K */
+            }
+
+            Debug.WriteLine("OnCurrentCellDirtyStateChanged-End: EditMode=" + IsCurrentCellInEditMode + " Dirty=" + IsCurrentCellDirty);
         }
         protected override void OnCellPainting(DataGridViewCellPaintingEventArgs e)
         {
@@ -243,10 +295,10 @@ namespace data_grid_view_virtual_mode
             base.OnCellContentClick(e);
             try
             {
-                if (typeof(DataGridViewCheckBoxCell).IsAssignableFrom(CurrentCell.GetType()))
-                {
-                    CommitEdit(DataGridViewDataErrorContexts.Commit);
-                }
+                //if (typeof(DataGridViewCheckBoxCell).IsAssignableFrom(CurrentCell.GetType()))
+                //{
+                //    CommitEdit(DataGridViewDataErrorContexts.Commit);
+                //}
             }
             catch (Exception ex)
             {
@@ -257,7 +309,6 @@ namespace data_grid_view_virtual_mode
 
         #region R O W S
         bool _isRowDirty = false;
-
         protected override void OnRowDirtyStateNeeded(QuestionEventArgs e)
         {
             e.Response = _isRowDirty;
@@ -337,13 +388,12 @@ namespace data_grid_view_virtual_mode
             DataValue delete = this[e.Row.Index];
             Remove(delete);
         }
+        #endregion
         readonly System.Windows.Forms.Timer _timerMultiSelect;
-
         private void _timerMultiSelect_Tick(object sender, EventArgs e)
         {
             _timerMultiSelect.Stop();
         }
-        #endregion
 
         int _dbcount = 0;
         bool IsCheckboxCell
@@ -397,9 +447,11 @@ namespace data_grid_view_virtual_mode
                 rowIndex, 
                 selected && 
                 (_mouseDeltaX >= 0) &&  // "Swipe to the right" is OK
-                (_dragCount == 0)       // Make sure this isn't a drag op.
+                (_dragCount == 0)   &&  // Make sure this isn't a drag op.
+                AllowSelect
             );
         }
+        bool AllowSelect { get; set; }
         #endregion
 
         #region D R A G    D R O P

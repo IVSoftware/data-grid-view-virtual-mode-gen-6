@@ -26,6 +26,16 @@ namespace data_grid_view_virtual_mode
             // This is STRICTLY so that test code matches
             // the way the original post reads.
             dataList = gridview.dataList;
+
+            DataValue.PropertyChanged += DataValue_PropertyChanged;
+        }
+
+        private void DataValue_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            Debug.WriteLine(
+                "Property Changed: " + 
+                e.PropertyName + "=" + 
+                sender.GetType().GetProperty(e.PropertyName).GetValue(sender));
         }
 
         readonly List<DataValue> dataList;
@@ -63,6 +73,7 @@ namespace data_grid_view_virtual_mode
         {
             InitTest();  gridview.AllowUserToAddRows = false;
 
+            IdentifyCallsToCellValueNeeded(2, 3);
             TestExistingCode(3, 2);
         }
 
@@ -92,7 +103,7 @@ namespace data_grid_view_virtual_mode
                 // OP: remove dragged row
                 // IVS: This is correct
                 dataList.RemoveAt(dragRow);
-                StressTest();
+                StressTest(); // <= Exception will be thrown here
 
                 // IVS: This is misleading. It decrements the RowCount
                 //      property which is good, but since there's no binding
@@ -147,11 +158,39 @@ namespace data_grid_view_virtual_mode
             finally { gridview.ResumeLayout(true); }
         }
 
+        private void IdentifyCallsToCellValueNeeded(int dragRow, int row)
+        {
+            gridview.SuspendLayout();
+            // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            try
+            {
+                // copy dragged row
+                DataGridViewRow rowCopy = gridview.Rows[dragRow];
+                // reference to (not a copy of) the DataValue object.
+                DataValue dataCopy = dataList[dragRow];
+                // remove dragged row
+                dataList.RemoveAt(dragRow);
+                gridview.Rows.RemoveAt(dragRow);
+                dataList.Insert(row, dataCopy);
+                gridview.Rows.Insert(row, rowCopy);
+                // move selection to moved row
+                StressTest();
+                gridview.CurrentCell = gridview[gridview.CurrentCell.ColumnIndex, row];
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+            // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            finally { gridview.ResumeLayout(true); }
+        }
+
         private void Test_DragDrop_FTR(object sender, EventArgs e)
         {
             InitTest(); gridview.AllowUserToAddRows = false;
 
-            TestIVSCode(3, 2);
+            TestIVSCode(3, 2); 
+            NoErrors_NoCallsToCellValueChanged(3, 2);
         }
         private void TestIVSCode(int dragRowIndex, int dropRowIndex)
         {
@@ -191,6 +230,7 @@ namespace data_grid_view_virtual_mode
                 int safeColumnIndex = gridview.CurrentCell == null ? 0 : gridview.CurrentCell.ColumnIndex;
                 int newIndexOfDroppedItem = dataList.IndexOf(draggedItem);
 
+                // But this WILL create some calls to CellValueNeeded.
                 gridview.CurrentCell = 
                     gridview
                     [
@@ -198,16 +238,60 @@ namespace data_grid_view_virtual_mode
                         rowIndex: newIndexOfDroppedItem
                     ];
             }
-            // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
-            // Added by IVS
-            // Leaving out a 'catch' block often results in
-            // exceptions that get swallowed and are undetectable.
             catch (Exception e)
             {
                 throw e;
             }
-            // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-            finally { gridview.ResumeLayout(true); }
+        }
+        private void NoErrors_NoCallsToCellValueChanged(int dragRowIndex, int dropRowIndex)
+        {
+            try
+            {
+                // We need to bank the actual objects here.
+                DataValue
+                    draggedItem = dataList[dragRowIndex],
+                    dropTarget = dataList[dropRowIndex];
+
+                // From here on out, anything index-based is doomed to 
+                // spradically fail because we're changing the list by 
+                // removing one or more items from it. There is no
+                // binding between the two (you gave that up when you
+                // set VirtualMode = true)
+
+                dataList.RemoveAt(dragRowIndex); // Remove the dragged item(s)
+                SynchronizeCounts();
+
+                // vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+                // CRITICAL:
+                // So at what index is the drop target now?
+                int correctDropRowIndex = dataList.IndexOf(dropTarget);
+                // In many cases it's not the same as dropRowIndex!!
+                // ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+                dataList.Insert(correctDropRowIndex, draggedItem);
+                SynchronizeCounts();
+
+                // move selection to moved row
+
+                int safeColumnIndex = gridview.CurrentCell == null ? 0 : gridview.CurrentCell.ColumnIndex;
+                int newIndexOfDroppedItem = dataList.IndexOf(draggedItem);
+
+#if false
+                // Setting CurrentCell is guaranteed to make calls
+                // to CellValueChanged. You will have to do it elsewhere
+                // if you don't want that to happen in this here code block.
+                gridview.CurrentCell =
+                    gridview
+                    [
+                        columnIndex: safeColumnIndex,
+                        rowIndex: newIndexOfDroppedItem
+                    ];
+#endif
+            }
+            catch (Exception e)
+            {
+                Debug.Assert(false, e.Message);
+            }
         }
 
         private void SynchronizeCounts()
@@ -221,6 +305,7 @@ namespace data_grid_view_virtual_mode
 
         private void StressTest(bool @throw = true)
         {
+#if true
             if (@throw) gridview.HandleError = false;
             string threatLevel = "";
             // Crash is likely if an update occurs while
@@ -241,6 +326,7 @@ namespace data_grid_view_virtual_mode
 
             // Force an update
             gridview.Refresh();
+#endif
         }
     }
 }
