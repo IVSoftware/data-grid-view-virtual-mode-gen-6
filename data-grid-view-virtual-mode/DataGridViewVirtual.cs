@@ -38,13 +38,10 @@ namespace data_grid_view_virtual_mode
     {
         public List<DataValue> _data = new List<DataValue>();
 
-        // This is STRICTLY so that test code matches
-        // the way the original post reads.
+        // This is cosmetic-- making the test code match the OP
         public List<DataValue> dataList => _data;
 
-        public DataGridViewVirtual()
-        { 
-        }
+        public DataGridViewVirtual() { }
         protected override void OnHandleCreated(EventArgs e)
         {
             base.OnHandleCreated(e);
@@ -115,26 +112,14 @@ namespace data_grid_view_virtual_mode
         {
             base.OnEditingControlShowing(e);
             e.Control.PreviewKeyDown += Control_PreviewKeyDown;
-            //e.Control.KeyPress += Control_KeyPress;
             e.Control.VisibleChanged += Control_VisibleChanged;
         }
-
-        private void Control_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            switch ((Keys)e.KeyChar)
-            {
-                case Keys.Escape:
-                    e.Handled = true;
-                    break;
-            }
-        }
-
         private void Control_PreviewKeyDown(object sender, PreviewKeyDownEventArgs e)
         {
             switch (e.KeyData)
             {
                 case Keys.Enter:
-                    // WORKS SAVE.
+                    // We use this to override the 'next row' default behavior.
                     KeepCurrentRow = CurrentCell.RowIndex;
                     break;
             }
@@ -158,8 +143,6 @@ namespace data_grid_view_virtual_mode
             }
             return base.ProcessCmdKey(ref msg, keyData);
         }
-        bool _cancelled = false;
-
         #endregion
 
         #region C E L L S
@@ -206,6 +189,13 @@ namespace data_grid_view_virtual_mode
             if (rowIndex == -1) return false;
             if (rowIndex >= Count) return false;
             return true;
+        }
+        bool IsCheckboxCell
+        {
+            get =>
+                CurrentCell != null &&
+                typeof(DataGridViewCheckBoxCell).IsAssignableFrom(CurrentCell.GetType()
+            );
         }
 
         public bool HandleError { get; set; } = true;
@@ -314,28 +304,19 @@ namespace data_grid_view_virtual_mode
         }
         protected override bool SetCurrentCellAddressCore(int columnIndex, int rowIndex, bool setAnchorCellAddress, bool validateCurrentCell, bool throughMouseClick)
         {
-            if  (
-                    (columnIndex == -1) ||
-                    (KeepCurrentRow == -1)
+            if (
+                    (columnIndex != -1) &&
+                    (KeepCurrentRow != -1)
                 )
             {
-                // Normal
-                return base.SetCurrentCellAddressCore(
-                    columnIndex,
-                    rowIndex,
-                    setAnchorCellAddress,
-                    validateCurrentCell,
-                    throughMouseClick);
+                rowIndex = KeepCurrentRow;
             }
-            else
-            {
-                return base.SetCurrentCellAddressCore(
-                    columnIndex,
-                    KeepCurrentRow,
-                    setAnchorCellAddress,
-                    validateCurrentCell,
-                    throughMouseClick);
-            }
+            return base.SetCurrentCellAddressCore(
+                columnIndex,
+                rowIndex,
+                setAnchorCellAddress,
+                validateCurrentCell,
+                throughMouseClick);
         }
         protected override void OnCurrentCellChanged(EventArgs e)
         {
@@ -434,14 +415,24 @@ namespace data_grid_view_virtual_mode
             e.Response = IsCurrentCellDirty;
             base.OnRowDirtyStateNeeded(e);
         }
-        #endregion
-        bool IsCheckboxCell
+
+        protected override void SetSelectedRowCore(int rowIndex, bool selected)
         {
-            get =>
-                CurrentCell != null &&
-                typeof(DataGridViewCheckBoxCell).IsAssignableFrom(CurrentCell.GetType()
+            if (KeepCurrentRow != -1)
+            {
+                rowIndex = KeepCurrentRow;
+            }
+            base.SetSelectedRowCore(
+                rowIndex,
+                selected &&
+                (_mouseDeltaX >= 0) &&  // "Swipe to the right" is OK
+                (_dragCount == 0)   &&  // Make sure this isn't a drag op.
+                AllowSelect 
             );
         }
+        bool AllowSelect { get; set; } = true;
+        int KeepCurrentRow { get; set; } = -1;
+        #endregion
 
         #region M O U S E
         int _mouseDownX;
@@ -509,32 +500,6 @@ namespace data_grid_view_virtual_mode
             }
             base.OnMouseUp(e);
         }
-
-        protected override void SetSelectedRowCore(int rowIndex, bool selected)
-        {
-            if(KeepCurrentRow == -1)
-            {
-                base.SetSelectedRowCore(
-                    rowIndex,
-                    selected &&
-                    (_mouseDeltaX >= 0) &&  // "Swipe to the right" is OK
-                    (_dragCount == 0) &&  // Make sure this isn't a drag op.
-                    AllowSelect
-                );
-            }
-            else
-            {
-                base.SetSelectedRowCore(
-                    KeepCurrentRow,
-                    selected &&
-                    (_mouseDeltaX >= 0) &&  // "Swipe to the right" is OK
-                    (_dragCount == 0) &&  // Make sure this isn't a drag op.
-                    AllowSelect
-                );
-            }
-        }
-        bool AllowSelect { get; set; } = true;
-        int KeepCurrentRow { get; set; } = -1;
         #endregion
 
         #region D R A G    D R O P
