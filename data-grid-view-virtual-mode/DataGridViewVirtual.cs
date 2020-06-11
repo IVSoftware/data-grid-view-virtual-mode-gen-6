@@ -642,10 +642,17 @@ namespace data_grid_view_virtual_mode
                         {
                             Remove(dragItem);
                         }
-                        insertIndex = this.IndexOf(insertItem);
+                        // If the drop row is itself, then it's no
+                        // longer in the list and might return -1.
+                        int safeNewIndex = IndexOf(insertItem);
+                        if(safeNewIndex != -1)
+                        {
+                            insertIndex = safeNewIndex;
+                        }
                     }
                     foreach (var dragItem in dragItems)
                     {
+                        Debug.Assert(insertIndex != -1);
                         Insert(insertIndex++, dragItem);
                     }
                     break;
