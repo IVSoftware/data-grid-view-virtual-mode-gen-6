@@ -318,10 +318,6 @@ namespace data_grid_view_virtual_mode
                 validateCurrentCell,
                 throughMouseClick);
         }
-        protected override void OnCurrentCellChanged(EventArgs e)
-        {
-            base.OnCurrentCellChanged(e);
-        }
 
         private void CycleCurrentCell(int ensureRowIndex = -1)
         {
@@ -399,10 +395,6 @@ namespace data_grid_view_virtual_mode
                 }
             }
         }
-        protected override void OnSelectionChanged(EventArgs e)
-        {
-            base.OnSelectionChanged(e);
-        }
         protected override void OnUserDeletingRow(DataGridViewRowCancelEventArgs e)
         {
             base.OnUserDeletingRow(e);
@@ -440,18 +432,21 @@ namespace data_grid_view_virtual_mode
         int[] _mouseDownSel;
         protected override void OnMouseDown(MouseEventArgs e)
         {
-            _mouseDownSel =
-                SelectedRows
-                .Cast<DataGridViewRow>()
-                .OrderBy(row => row.Index)
-                .Select(row => row.Index)
-                .ToArray();
-            if (_mouseDownSel.Length < 2)
+            if (SelectedRows.Count < 2)
             {
-                // Suppress selection when multiselect
+                // Allow selection when NOT multiselected
                 base.OnMouseDown(e);
             }
-            _mouseDownX = e.X;            
+            if (SelectedRows.Count > 0)
+            {
+                _mouseDownSel =
+                    SelectedRows
+                    .Cast<DataGridViewRow>()
+                    .OrderBy(row => row.Index)
+                    .Select(row => row.Index)
+                    .ToArray();
+            }
+            _mouseDownX = e.X;
             _mouseDeltaX = 0;
         }
 
@@ -482,8 +477,7 @@ namespace data_grid_view_virtual_mode
                     .Cast<DataGridViewRow>()
                     .OrderBy(row => row.Index)
                     .Select(row => row.Index)
-                    .ToArray();
-                
+                    .ToArray();                
                 if (
                         (selNow.Length > 1) &&                      // is multiselection +
                         (selNow.Length == _mouseDownSel.Length)     // multiselection is unchanged
