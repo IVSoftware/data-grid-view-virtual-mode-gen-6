@@ -436,7 +436,11 @@ namespace data_grid_view_virtual_mode
             {
                 // Allow selection when NOT multiselected
                 base.OnMouseDown(e);
+                // So, if the count is 2 or more we do NOT
+                // call base.OnMouseDown because we will 
+                // lose our multiselection if we do that.
             }
+
             if (SelectedRows.Count > 0)
             {
                 _mouseDownSel =
@@ -445,6 +449,21 @@ namespace data_grid_view_virtual_mode
                     .OrderBy(row => row.Index)
                     .Select(row => row.Index)
                     .ToArray();
+                // However, the mouse has to come down
+                // on one of the selected rows! Otherwise
+                // cancel the selection.
+                HitTestInfo hti = HitTest(e.X, e.Y);
+                if (
+                        (hti.Type != DataGridViewHitTestType.Cell) ||
+                        (!_mouseDownSel.Contains(hti.RowIndex))
+                    )
+                {
+                    _mouseDownSel = new int[0];
+                    BeginInvoke((MethodInvoker)delegate
+                    {
+                        ClearSelection();
+                    });
+                }
             }
             _mouseDownX = e.X;
             _mouseDeltaX = 0;
@@ -509,6 +528,13 @@ namespace data_grid_view_virtual_mode
             //   (not the other hundreds of times it's called).
             if (_dragCount++ == 0) // <= Increments on every call. 
             {
+                if (_mouseDownSel.Length == 0)
+                {
+                    // Naturally occurring. Not an error.
+                    // The selection will be cleared if
+                    // the mousedown isn't on a selected row.
+                    return;
+                }
                 _revert.AddRange(this); 
                 _lastInsertIndex = -1;
                 _dragItems.Clear();
@@ -634,20 +660,26 @@ namespace data_grid_view_virtual_mode
         {
             Point client = PointToClient(screen);
             HitTestInfo hitTest = HitTest(client.X, client.Y);
-            if (
-                    (hitTest.RowIndex != -1) &&
-                    (hitTest.RowIndex < Count)
-                 )
+            switch (hitTest.Type)
             {
-                Rectangle displayRect = GetRowDisplayRectangle(hitTest.RowIndex, false);
-                int midline = displayRect.Y + (displayRect.Height / 2);
-                above = client.Y <= midline;
-                insertIndex = above ? hitTest.RowIndex : hitTest.RowIndex + 1;
-            }
-            else
-            {
-                above = true;
-                insertIndex = -1;
+                case DataGridViewHitTestType.None:
+                    above = false;
+                    insertIndex = Count;
+                    break;
+                case DataGridViewHitTestType.ColumnHeader:
+                    above = true;
+                    insertIndex = 0;
+                    break;
+                case DataGridViewHitTestType.Cell:
+                    Rectangle displayRect = GetRowDisplayRectangle(hitTest.RowIndex, false);
+                    int midline = displayRect.Y + (displayRect.Height / 2);
+                    above = client.Y <= midline;
+                    insertIndex = above ? hitTest.RowIndex : hitTest.RowIndex + 1;
+                    break;
+                default:
+                    above = false;
+                    insertIndex = Count;
+                    break;
             }
             return hitTest;
         }
